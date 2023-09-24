@@ -2336,43 +2336,18 @@ public:
 
     static bool offerKeyMessageToJUCEWindow (MSG& m)
     {
-        auto* peer = getOwnerOfWindow (m.hwnd);
-
-        if (peer == nullptr)
-            return false;
-
-        auto* focused = Component::getCurrentlyFocusedComponent();
-
-        if (focused == nullptr || focused->getPeer() != peer)
-            return false;
-
-        constexpr UINT keyMessages[] { WM_KEYDOWN,
-                                       WM_KEYUP,
-                                       WM_SYSKEYDOWN,
-                                       WM_SYSKEYUP,
-                                       WM_CHAR };
-
-        const auto messageTypeMatches = [&] (UINT msg) { return m.message == msg; };
-
-        if (std::none_of (std::begin (keyMessages), std::end (keyMessages), messageTypeMatches))
-            return false;
-
-        ScopedThreadDPIAwarenessSetter threadDpiAwarenessSetter { m.hwnd };
-
-        if (m.message == WM_CHAR)
-            return peer->doKeyChar ((int) m.wParam, m.lParam);
-
-        TranslateMessage (&m);
-
-        switch (m.message)
+        if (m.message == WM_KEYDOWN || m.message == WM_KEYUP)
         {
-            case WM_KEYDOWN:
-            case WM_SYSKEYDOWN:
-                return peer->doKeyDown (m.wParam);
+            if (Component::getCurrentlyFocusedComponent() != nullptr)
+            {
+                if (auto* peer = getOwnerOfWindow (m.hwnd))
+                {
+                    ScopedThreadDPIAwarenessSetter threadDpiAwarenessSetter { m.hwnd };
 
-            case WM_KEYUP:
-            case WM_SYSKEYUP:
-                return peer->doKeyUp (m.wParam);
+                    return m.message == WM_KEYDOWN ? peer->doKeyDown (m.wParam)
+                                                   : peer->doKeyUp (m.wParam);
+                }
+            }
         }
 
         return false;
